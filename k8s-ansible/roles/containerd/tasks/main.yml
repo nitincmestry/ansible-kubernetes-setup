@@ -1,8 +1,18 @@
 ---
+- name: Add Docker repo for containerd
+  yum_repository:
+    name: docker
+    description: Docker CE Repository
+    baseurl: https://download.docker.com/linux/centos/8/x86_64/stable/
+    gpgcheck: yes
+    gpgkey: https://download.docker.com/linux/centos/gpg
+    enabled: yes
+
 - name: Install containerd
   yum:
-    name: containerd
+    name: containerd.io
     state: present
+
 
 - name: Configure containerd
   block:
