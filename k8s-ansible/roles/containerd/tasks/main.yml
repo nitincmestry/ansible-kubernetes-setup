@@ -1,0 +1,19 @@
+---
+- name: Install containerd
+  yum:
+    name: containerd
+    state: present
+
+- name: Configure containerd
+  block:
+    - command: containerd config default | tee /etc/containerd/config.toml
+    - replace:
+        path: /etc/containerd/config.toml
+        regexp: 'SystemdCgroup = false'
+        replace: 'SystemdCgroup = true'
+
+- name: Enable and start containerd
+  systemd:
+    name: containerd
+    enabled: true
+    state: started

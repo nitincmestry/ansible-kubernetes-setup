@@ -1,0 +1,44 @@
+---
+- name: Setup Kubernetes Cluster
+  hosts: kubernetes
+  become: yes
+  vars_files:
+    - group_vars/all.yml
+  roles:
+    - containerd
+    - kubernetes
+
+- name: Initialize Kubernetes Master
+  hosts: masters
+  become: yes
+  tasks:
+    - name: Initialize the control plane
+      shell: kubeadm init --pod-network-cidr={{ pod_network_cidr }} --kubernetes-version={{ kubernetes_version }}
+      args:
+        creates: /etc/kubernetes/admin.conf
+      register: kubeadm_init
+
+    - name: Set kubeconfig for root
+      shell: |
+        mkdir -p $HOME/.kube
+        cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+        chown $(id -u):$(id -g) $HOME/.kube/config
+
+    - name: Save join command
+      set_fact:
+        join_command: "{{ kubeadm_init.stdout_lines | select('search','kubeadm join') | list | first | trim }} --ignore-preflight-errors=all"
+
+- name: Join Worker Nodes
+  hosts: workers
+  become: yes
+  tasks:
+    - name: Join node to cluster
+      shell: "{{ hostvars[groups['masters'][0]]['join_command'] }}"
+      args:
+        creates: /etc/kubernetes/kubelet.conf
+
+- name: Deploy CNI Plugin (Flannel)
+  hosts: masters
+  become: yes
+  roles:
+    - cni
