@@ -1,29 +1,38 @@
 ---
-- name: Add Docker repo for containerd
-  yum_repository:
-    name: docker
-    description: Docker CE Repository
-    baseurl: https://download.docker.com/linux/centos/8/x86_64/stable/
-    gpgcheck: yes
-    gpgkey: https://download.docker.com/linux/centos/gpg
-    enabled: yes
+- name: Add Docker (containerd) repo
+  ansible.builtin.copy:
+    dest: /etc/yum.repos.d/docker.repo
+    content: |
+      [docker]
+      name=Docker CE Stable - $basearch
+      baseurl=https://download.docker.com/linux/centos/9/$basearch/stable
+      enabled=1
+      gpgcheck=1
+      gpgkey=https://download.docker.com/linux/centos/gpg
+  become: yes
+
+- name: Refresh DNF cache
+  ansible.builtin.command: dnf clean all && dnf makecache
+  args:
+    warn: false
+  become: yes
 
 - name: Install containerd
-  yum:
-    name: containerd.io
+  ansible.builtin.dnf:
+    name:
+      - containerd.io
     state: present
-
+  become: yes
 
 - name: Configure containerd
-  block:
-    - command: containerd config default | tee /etc/containerd/config.toml
-    - replace:
-        path: /etc/containerd/config.toml
-        regexp: 'SystemdCgroup = false'
-        replace: 'SystemdCgroup = true'
+  ansible.builtin.command: containerd config default > /etc/containerd/config.toml
+  args:
+    creates: /etc/containerd/config.toml
+  become: yes
 
 - name: Enable and start containerd
-  systemd:
+  ansible.builtin.systemd:
     name: containerd
-    enabled: true
+    enabled: yes
     state: started
+  become: yes

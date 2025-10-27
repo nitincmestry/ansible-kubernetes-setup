@@ -40,13 +40,13 @@
       exclude=kubelet kubeadm kubectl cri-tools kubernetes-cni
   become: yes
 
-- name: Clean yum cache and refresh
+- name: Clean yum metadata and refresh cache
   ansible.builtin.command: dnf clean all && dnf makecache
   args:
     warn: false
   become: yes
 
-- name: Install kubeadm, kubelet, and kubectl
+- name: Install kubeadm, kubelet, kubectl
   ansible.builtin.dnf:
     name:
       - kubelet
@@ -56,10 +56,9 @@
     disable_excludes: kubernetes
   become: yes
 
-- name: Enable and start kubelet
+- name: Enable kubelet service
   ansible.builtin.systemd:
     name: kubelet
     enabled: yes
-    state: started
+    state: stopped  # started later by kubeadm
   become: yes
-
