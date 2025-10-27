@@ -27,8 +27,8 @@
 - name: Apply sysctl changes
   command: sysctl --system
 
-- name: Add Kubernetes repo
-  copy:
+- name: Add Kubernetes yum repo
+  ansible.builtin.copy:
     dest: /etc/yum.repos.d/kubernetes.repo
     content: |
       [kubernetes]
@@ -37,17 +37,29 @@
       enabled=1
       gpgcheck=1
       gpgkey=https://pkgs.k8s.io/core:/stable:/v{{ kubernetes_version }}/rpm/repodata/repomd.xml.key
+      exclude=kubelet kubeadm kubectl cri-tools kubernetes-cni
+  become: yes
 
-- name: Install kubeadm, kubelet, kubectl
-  yum:
+- name: Clean yum cache and refresh
+  ansible.builtin.command: dnf clean all && dnf makecache
+  args:
+    warn: false
+  become: yes
+
+- name: Install kubeadm, kubelet, and kubectl
+  ansible.builtin.dnf:
     name:
-      - kubeadm
       - kubelet
+      - kubeadm
       - kubectl
     state: present
+    disable_excludes: kubernetes
+  become: yes
 
-- name: Enable kubelet
-  systemd:
+- name: Enable and start kubelet
+  ansible.builtin.systemd:
     name: kubelet
     enabled: yes
     state: started
+  become: yes
+
