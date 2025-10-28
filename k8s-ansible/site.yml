@@ -15,8 +15,6 @@
         name: "*"
         state: latest
         disablerepo: kubernetes
-      args:
-        warn: false
 
     - name: Reboot if kernel update requires (safe)
       ansible.builtin.reboot:
