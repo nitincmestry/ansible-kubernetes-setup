@@ -21,12 +21,12 @@
     name: "{{ containerd_pkg_name }}"
     state: present
 
-- name: Ensure containerd config exists (generate default if missing)
+- name: Create default containerd config if missing
   ansible.builtin.command: containerd config default > /etc/containerd/config.toml
   args:
     creates: /etc/containerd/config.toml
 
-- name: Ensure SystemdCgroup = true in containerd config
+- name: Ensure systemd cgroup is enabled in containerd config
   ansible.builtin.replace:
     path: /etc/containerd/config.toml
     regexp: 'SystemdCgroup = false'

@@ -1,6 +1,6 @@
 ---
 - name: Wait for kubeconfig to exist
-  wait_for:
+  ansible.builtin.wait_for:
     path: /root/.kube/config
     state: present
     timeout: 120
@@ -10,4 +10,4 @@
   args:
     warn: false
   register: flannel_apply
-  failed_when: flannel_apply.rc != 0 and 'already exists' not in flannel_apply.stdout
+  failed_when: flannel_apply.rc != 0 and ('already exists' not in flannel_apply.stdout)

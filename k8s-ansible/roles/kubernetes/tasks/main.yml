@@ -1,5 +1,5 @@
 ---
-- name: Add Kubernetes repo (disabled by default)
+- name: Add Kubernetes yum repo (disabled by default)
   ansible.builtin.copy:
     dest: /etc/yum.repos.d/kubernetes.repo
     content: |
@@ -10,7 +10,7 @@
       gpgcheck=1
       gpgkey=https://pkgs.k8s.io/core:/stable:/v{{ kubernetes_version }}/rpm/repodata/repomd.xml.key
       exclude=kubelet kubeadm kubectl cri-tools kubernetes-cni
-    mode: '0644'
+    mode: "0644"
 
 - name: Refresh dnf cache
   ansible.builtin.command: dnf clean all && dnf makecache
@@ -26,7 +26,7 @@
     state: present
     enablerepo: kubernetes
 
-- name: Enable kubelet service (but do not start yet)
+- name: Enable kubelet service (do not start - kubeadm handles sequence)
   ansible.builtin.systemd:
     name: kubelet
     enabled: yes

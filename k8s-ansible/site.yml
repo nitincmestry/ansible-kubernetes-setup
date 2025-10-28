@@ -1,9 +1,8 @@
 ---
-# 1. PRE-FLIGHT: Ensure Python + Update System (without Kubernetes repo)
-- name: Pre-flight setup
+- name: Pre-flight - ensure python3 and update OS (kubernetes repo disabled)
   hosts: all
   become: yes
-  gather_facts: no
+  gather_facts: yes
   tasks:
     - name: Ensure python3 is installed for Ansible
       ansible.builtin.dnf:
@@ -11,53 +10,53 @@
         state: present
         disablerepo: kubernetes
 
-    - name: Update system packages safely (without Kubernetes repo)
+    - name: Update system packages (without kubernetes repo)
       ansible.builtin.dnf:
         name: "*"
         state: latest
         disablerepo: kubernetes
+      args:
+        warn: false
 
-    - name: Reboot if required
+    - name: Reboot if kernel update requires (safe)
       ansible.builtin.reboot:
-        msg: "Reboot triggered by Ansible after updates"
+        msg: "Rebooting after updates"
         connect_timeout: 30
         reboot_timeout: 300
-        pre_reboot_delay: 5
-        post_reboot_delay: 10
-      when: ansible_facts.reboot_required is defined
+      when: ansible_facts.get('reboot_required', False)
 
-# 2. BASE SYSTEM PREP: swap, sysctl, modules
-- name: Base system configuration
+- name: Base system configuration (swap, sysctl, modules)
   hosts: all
   become: yes
+  gather_facts: yes
   roles:
     - base
 
-# 3. INSTALL CONTAINERD & KUBERNETES
-- name: Install container runtime & Kubernetes components
+- name: Install containerd and Kubernetes packages
   hosts: all
   become: yes
+  gather_facts: yes
   roles:
     - containerd
     - kubernetes
 
-# 4. INITIALIZE CONTROL PLANE
-- name: Initialize Kubernetes control plane
+- name: Initialize Kubernetes control plane on masters
   hosts: masters
   become: yes
+  gather_facts: yes
   roles:
     - master-init
 
-# 5. JOIN WORKERS
-- name: Join worker nodes to cluster
+- name: Join worker nodes to the cluster
   hosts: workers
   become: yes
+  gather_facts: yes
   roles:
     - worker-join
 
-# 6. INSTALL CNI
-- name: Deploy CNI network plugin
+- name: Deploy CNI plugin on master(s)
   hosts: masters
   become: yes
+  gather_facts: yes
   roles:
     - cni

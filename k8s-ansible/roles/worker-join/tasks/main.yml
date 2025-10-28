@@ -1,0 +1,18 @@
+---
+- name: Read join script content from master (delegated)
+  ansible.builtin.slurp:
+    src: /tmp/kube_join_cmd.sh
+  delegate_to: "{{ groups['masters'][0] }}"
+  run_once: true
+  register: slurped_join
+
+- name: Create join script on worker
+  ansible.builtin.copy:
+    dest: /tmp/kube_join_cmd.sh
+    content: "{{ slurped_join.content | b64decode }}"
+    mode: "0755"
+
+- name: Execute kubeadm join on worker (idempotent check)
+  ansible.builtin.shell: /tmp/kube_join_cmd.sh
+  args:
+    creates: /etc/kubernetes/kubelet.conf
