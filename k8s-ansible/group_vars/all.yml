@@ -1,5 +1,5 @@
 ---
-kubernetes_version: "1.33.5"
-containerd_version: "1.7.5"
-cni_version: "v1.3.0"
+kubernetes_version: "1.31"
+containerd_pkg_name: "containerd.io"
 pod_network_cidr: "10.244.0.0/16"
+flannel_manifest: "https://raw.githubusercontent.com/flannel-io/flannel/master/Documentation/kube-flannel.yml"

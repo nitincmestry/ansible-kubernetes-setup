@@ -1,5 +1,5 @@
 ---
-- name: Add Docker (containerd) repo
+- name: Add Docker repo (for containerd)
   ansible.builtin.copy:
     dest: /etc/yum.repos.d/docker.repo
     content: |
@@ -9,30 +9,32 @@
       enabled=1
       gpgcheck=1
       gpgkey=https://download.docker.com/linux/centos/gpg
-  become: yes
+  mode: '0644'
 
-- name: Refresh DNF cache
+- name: Refresh dnf cache
   ansible.builtin.command: dnf clean all && dnf makecache
   args:
     warn: false
-  become: yes
 
-- name: Install containerd
+- name: Install containerd package
   ansible.builtin.dnf:
-    name:
-      - containerd.io
+    name: "{{ containerd_pkg_name }}"
     state: present
-  become: yes
 
-- name: Configure containerd
+- name: Ensure containerd config exists (generate default if missing)
   ansible.builtin.command: containerd config default > /etc/containerd/config.toml
   args:
     creates: /etc/containerd/config.toml
-  become: yes
+
+- name: Ensure SystemdCgroup = true in containerd config
+  ansible.builtin.replace:
+    path: /etc/containerd/config.toml
+    regexp: 'SystemdCgroup = false'
+    replace: 'SystemdCgroup = true'
+  ignore_errors: yes
 
 - name: Enable and start containerd
   ansible.builtin.systemd:
     name: containerd
     enabled: yes
     state: started
-  become: yes
