@@ -1,109 +1,63 @@
 ---
-- name: Pre-flight & system update (run BEFORE adding custom repos)
+# 1. PRE-FLIGHT: Ensure Python + Update System (without Kubernetes repo)
+- name: Pre-flight setup
   hosts: all
   become: yes
+  gather_facts: no
   tasks:
-    - name: Ensure python3 is present (ansible python)
-      package:
+    - name: Ensure python3 is installed for Ansible
+      ansible.builtin.dnf:
         name: python3
         state: present
+        disablerepo: kubernetes
 
-    - name: Update OS packages (disable kubernetes repo if present)
-      ansible.builtin.command: dnf --disablerepo=kubernetes -y update
-      args:
-        warn: false
+    - name: Update system packages safely (without Kubernetes repo)
+      ansible.builtin.dnf:
+        name: "*"
+        state: latest
+        disablerepo: kubernetes
 
-    - name: Reboot if kernel updated (safe check)
-      register: kernel_update
-      shell: |
-        if [ -f /var/run/reboot-required ]; then echo "reboot-required"; fi
-      changed_when: false
-      check_mode: no
+    - name: Reboot if required
+      ansible.builtin.reboot:
+        msg: "Reboot triggered by Ansible after updates"
+        connect_timeout: 30
+        reboot_timeout: 300
+        pre_reboot_delay: 5
+        post_reboot_delay: 10
+      when: ansible_facts.reboot_required is defined
 
-- name: Apply base system settings (swap/sysctl/modules)
+# 2. BASE SYSTEM PREP: swap, sysctl, modules
+- name: Base system configuration
   hosts: all
   become: yes
-  roles: []
+  roles:
+    - base
 
-  tasks:
-    - name: Disable swap immediately
-      ansible.builtin.command: swapoff -a
-      ignore_errors: yes
-
-    - name: Disable swap in fstab
-      ansible.builtin.replace:
-        path: /etc/fstab
-        regexp: '(^.*\sswap\s.*$)'
-        replace: '# \1'
-      ignore_errors: yes
-
-    - name: Ensure required kernel modules are loaded at boot
-      ansible.builtin.copy:
-        dest: /etc/modules-load.d/k8s.conf
-        content: |
-          overlay
-          br_netfilter
-        mode: '0644'
-
-    - name: Configure sysctl for Kubernetes
-      ansible.builtin.copy:
-        dest: /etc/sysctl.d/99-k8s.conf
-        content: |
-          net.bridge.bridge-nf-call-iptables = 1
-          net.bridge.bridge-nf-call-ip6tables = 1
-          net.ipv4.ip_forward = 1
-        mode: '0644'
-
-    - name: Apply sysctl
-      ansible.builtin.command: sysctl --system
-
-- name: Install containerd and Kubernetes packages
+# 3. INSTALL CONTAINERD & KUBERNETES
+- name: Install container runtime & Kubernetes components
   hosts: all
   become: yes
-  roles: []
+  roles:
+    - containerd
+    - kubernetes
 
-  tasks:
-    - name: Include containerd tasks
-      import_tasks: roles/containerd/tasks/main.yml
-
-    - name: Include kubernetes tasks
-      import_tasks: roles/kubernetes/tasks/main.yml
-
-- name: Initialize master and capture join command
+# 4. INITIALIZE CONTROL PLANE
+- name: Initialize Kubernetes control plane
   hosts: masters
   become: yes
-  tasks:
-    - name: Initialize control plane if not already initialized
-      import_tasks: roles/master-init/tasks/main.yml
+  roles:
+    - master-init
 
-- name: Join workers to control plane
+# 5. JOIN WORKERS
+- name: Join worker nodes to cluster
   hosts: workers
   become: yes
-  tasks:
-    - name: Wait for join command to be available on masters
-      wait_for:
-        path: /tmp/kube_join_cmd.sh
-        state: present
-        timeout: 300
-      delegate_to: "{{ groups['masters'][0] }}"
-      run_once: true
+  roles:
+    - worker-join
 
-    - name: Copy join script from master to worker
-      fetch:
-        src: /tmp/kube_join_cmd.sh
-        dest: /tmp/kube_join_cmd.sh
-        flat: yes
-      delegate_to: "{{ groups['masters'][0] }}"
-      run_once: true
-
-    - name: Run kubeadm join on worker
-      shell: bash /tmp/kube_join_cmd.sh
-      args:
-        creates: /etc/kubernetes/kubelet.conf
-
-- name: Deploy CNI on master
+# 6. INSTALL CNI
+- name: Deploy CNI network plugin
   hosts: masters
   become: yes
-  tasks:
-    - name: Deploy Flannel CNI
-      import_tasks: roles/cni/tasks/main.yml
+  roles:
+    - cni
